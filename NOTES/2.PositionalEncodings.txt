@@ -1,0 +1,91 @@
+Positional Encodings:
+
+    Why Positional Encodings Are Needed
+        Transformers process input tokens in parallel rather than sequentially. Unlike RNNs or LSTMs, there is no inherent notion of order in the architecture. 
+        If we feed a Transformer the embeddings for the words in a sentence without any additional information, the model cannot distinguish between different 
+        word orders.
+
+        For example, the sentences "I am a robot" and "a robot am I" would produce the same set of embeddings, only reordered. Since attention alone does not 
+        encode absolute or relative position, the model needs explicit positional information.
+
+        Positional encodings solve this by injecting information about the position of each token in the sequence. This allows the model to reason about word 
+        order, distance between tokens, and sequential structure while still benefiting from parallel computation.
+
+    Why Use Sine and Cosine Functions
+        Positional encodings must satisfy several requirements:
+            * They must represent position information numerically
+            * They should generalize to sequence lengths longer than those seen during training
+            * They should allow the model to easily learn relative positions
+
+        Sine and cosine functions are well suited for this purpose because they are smooth, continuous, and periodic. Small changes in position result in 
+        small changes in values, which helps learning. Using different frequencies allows each dimension of the positional encoding to represent position at 
+        a different scale. Another key advantage is that sine and cosine functions are deterministic. Positional encodings do not need to be learned and can
+        be generated for arbitrary sequence lengths without introducing new parameters.
+
+    The Positional Encoding Formula
+        For a given position pos and embedding dimension d, positional encodings are defined as:
+
+        PE(pos, 2i)   = sin(pos / 10000^(2i / d))
+        PE(pos, 2i+1) = cos(pos / 10000^(2i / d))
+
+        Where:
+            * pos is the position of the token in the sequence, starting from 0
+            * i is the dimension index
+            * d is the embedding dimension
+
+        Even dimensions use sine functions.
+        Odd dimensions use cosine functions.
+
+        The term 10000^(2i / d) controls the frequency of the sine and cosine waves. Lower dimensions vary slowly across positions, capturing long-range information. 
+        Higher dimensions vary more rapidly, capturing fine-grained positional differences.
+
+        Worked Example: "I am a robot"
+
+        Sentence:
+            "I am a robot"
+
+        Token positions:
+            I     → pos = 0
+            am    → pos = 1
+            a     → pos = 2
+            robot → pos = 3
+
+        Assume embedding dimension d = 4 for simplicity.
+        We compute positional encodings for each position.
+
+            For pos = 0:
+            PE(0,0) = sin(0 / 10000^(0/4)) = 0
+            PE(0,1) = cos(0 / 10000^(0/4)) = 1
+            PE(0,2) = sin(0 / 10000^(2/4)) = 0
+            PE(0,3) = cos(0 / 10000^(2/4)) = 1
+
+            PE(0) = [0, 1, 0, 1]
+
+            For pos = 1:
+            PE(1,0) = sin(1 / 10000^(0/4))
+            PE(1,1) = cos(1 / 10000^(0/4))
+            PE(1,2) = sin(1 / 10000^(2/4))
+            PE(1,3) = cos(1 / 10000^(2/4))
+
+        Numerically, this produces a unique vector different from position 0.
+        Repeating this process for pos = 2 and pos = 3 yields distinct positional vectors for each token position.
+        Each word now has a position-specific vector of shape (d).
+
+    Adding Positional Encodings to Token Embeddings
+        Before positional encoding, each token is represented only by its embedding vector.
+        Embedding matrix for the sentence has shape:
+            (sequence length, embedding dimension)
+        Positional encodings have the same shape.
+
+        The final input to the Transformer is obtained by element-wise addition:
+            Final Input = Token Embeddings + Positional Encodings
+        This addition injects position information directly into the token representations while preserving dimensionality.
+        No concatenation is used. Addition ensures that position and meaning are jointly represented and can interact naturally in attention computations.
+
+    Final Output to the Transformer
+        After adding positional encodings, each token vector contains:
+            * Semantic meaning from embeddings
+            * Positional information from sine and cosine functions
+
+        The resulting matrix is then passed into the first Transformer layer, where self-attention can now reason about both content and position.
+        This completes the preparation of inputs for the Transformer architecture.

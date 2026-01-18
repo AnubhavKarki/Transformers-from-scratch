@@ -1,0 +1,129 @@
+Introduction to Large Language Models (LLMs)
+
+Tokenization, Encodings, and Embeddings
+
+    Tokenization
+        Tokenization is the process of converting raw text into discrete units called tokens. These tokens are the basic symbols a language model operates on.
+        Tokens can be words, subwords, characters, or bytes depending on the tokenizer design. Modern LLMs usually use subword tokenization methods such 
+        as Byte Pair Encoding (BPE) or WordPiece because they balance vocabulary size and flexibility.
+
+        Example: Sentence: "I love AI"
+        After tokenization: ["I", "love", "AI"]
+        Each token is then mapped to a unique integer called a token ID using a vocabulary.
+        Token to ID mapping: I → 0 love → 1 AI → 2
+        Final tokenized sequence: [0, 1, 2]
+
+        At this stage, the data is still symbolic. No numerical meaning or semantic structure exists yet.
+
+    One-Hot Encoding
+        One-hot encoding is a simple encoding method that converts token IDs into binary vectors. The length of the vector equals the vocabulary size. 
+        Exactly one position is set to 1, corresponding to the token ID, and all others are 0.
+        Example with vocabulary size 3:
+            Token IDs: I → 0 love → 1 AI → 2
+            One-hot vectors: I → [1, 0, 0] love → [0, 1, 0] AI → [0, 0, 1]
+            The sentence "I love AI" becomes: [ [1, 0, 0], [0, 1, 0], [0, 0, 1] ]
+
+        One-hot encoding preserves identity but does not encode similarity or meaning. All tokens are equally distant from each other. 
+        In practice, one-hot vectors are not used directly in Transformers due to their high dimensionality and inefficiency.
+
+    Embeddings
+        Embeddings convert discrete tokens into dense, continuous vectors that capture semantic information. An embedding is obtained using an embedding matrix,
+        which is a learnable parameter of the model.
+        The embedding matrix E has shape: V × d
+        Where: V is the vocabulary size D is the embedding dimension
+        
+        Example:
+            Vocabulary size V = 3 Embedding dimension d = 4
+            Embedding matrix: E = [ [0.2, 0.1, 0.7, 0.3], [0.9, 0.4, 0.2, 0.1], [0.6, 0.8, 0.5, 0.2] ]
+
+            To obtain an embedding for a token, the model performs a lookup using the token ID.
+            Example: Token ID for "love" = 1
+            Embedding vector: E[1] = [0.9, 0.4, 0.2, 0.1]
+
+        Mathematically, this is equivalent to multiplying the one-hot vector by the embedding matrix, but in practice the lookup is used for efficiency.
+        The output of the embedding layer for a sequence of length L is a matrix of shape: L × d
+
+        Embeddings start as random values and become meaningful during training through gradient descent. Tokens that appear in similar contexts end up with 
+        similar embedding vectors.
+
+    Relationship Between Tokenization, Encoding, and Embeddings
+        Tokenization converts text into tokens. Encoding assigns numerical identities to tokens. Embeddings map those numerical identities 
+        into continuous vector space.
+        Flow summary: Text → Tokens → Token IDs → Embedding vectors
+        Transformers do not operate on raw text or one-hot vectors. They operate on dense embeddings that encode semantic information and are suitable for 
+        linear algebra operations such as dot products and attention.
+
+NOTE:
+    How Embedding Lookup Gets Its Values
+        Embedding lookup does not compute or infer values on its own. It simply reads values from the embedding matrix. Those values exist because they were 
+        learned during training through gradient descent.
+
+    Initial State: Before Training
+        When a model is created, the embedding matrix is initialized randomly.
+        Let E be the embedding matrix with shape V × d, where V is the vocabulary size and d is the embedding dimension.
+
+        Example:
+            E =
+                [
+                [ 0.01, -0.02,  0.03 ],   // token 0
+                [-0.04,  0.02,  0.01 ],   // token 1
+                [ 0.00, -0.01,  0.05 ],   // token 2
+                ...
+                ]
+
+        At this stage, embeddings contain no semantic meaning. A lookup simply returns random values.
+        Example:
+            Token ID = 2
+            Lookup result = E[2] = [0.00, -0.01, 0.05]
+
+
+    Forward Pass During Training
+        For each training step, the data flows through the following pipeline:
+        Text → Tokenization → Token IDs → Embedding Lookup → Transformer Layers → Output → Loss
+        The embedding vectors are treated like any other model parameters. They influence predictions made by the network.
+
+    Loss Computation
+        The model’s output is compared against the correct target using a loss function such as cross-entropy. If the prediction is wrong, the loss 
+        value is high, indicating an error.
+
+        This error signal is what drives learning.
+
+    Backpropagation and Parameter Updates
+        During backpropagation, gradients flow backward through the network.
+
+        Critical detail:
+            Only the embedding rows corresponding to token IDs used in the input receive gradients.
+
+            If token ID 2 appears in the input:
+            ∂Loss / ∂E[2] ≠ 0
+            ∂Loss / ∂E[other rows] = 0
+
+            The update rule is:
+            E[2] ← E[2] − η · ∂Loss/∂E[2]
+
+            Over many training steps, these updates accumulate.
+
+    How Meaning Emerges
+        Tokens that appear in similar contexts tend to:
+            * Produce similar prediction errors
+            * Receive similar gradient updates
+            * Move toward similar regions in embedding space
+
+        No explicit semantic rules are defined. Meaning emerges purely from optimization pressure to minimize prediction error.
+
+    What Lookup Actually Does
+        Embedding lookup is simple memory access.
+
+        Given a token ID i:
+        Lookup returns the i-th row of the embedding matrix.
+
+        Lookup does not learn, infer, or modify values. Training is what writes useful values into the matrix. Lookup only reads them.
+
+    Correct Mental Model
+        * The embedding matrix is a learnable parameter tensor
+        * Training gradually shapes its values
+        * Lookup is equivalent to indexing into memory
+        * This is mathematically equivalent to one-hot vector multiplication, but vastly more efficient
+
+    One-Line Summary
+        Embedding lookup works because training fills the embedding matrix with useful values, and lookup simply retrieves them.
